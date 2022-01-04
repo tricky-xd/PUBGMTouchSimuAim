@@ -3,17 +3,25 @@ package com.sharkcheat.pubgmaimbottouchtest;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
+import android.graphics.Point;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.CompoundButton;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.Switch;
 import android.widget.Toast;
@@ -42,58 +50,102 @@ public class MyService extends Service {
     private GestureDetector gestureDetector;
     private RelativeLayout layout_menu, layout_controll;
 
+    WindowManager wm;
+    LinearLayout ll;
+
     @Override
     public IBinder onBind(Intent intent) {
+        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public void onCreate() {
+        // TODO Auto-generated method stub
         super.onCreate();
-        if (getContext() != null && getInstance() == null){
-            setInstance(this);
-            gestureDetector = new GestureDetector(context, new SingleTapConfirm());
-            windowManager = (WindowManager) getInstance().getSystemService(WINDOW_SERVICE);
-            params = Devices.getParams();
-            mainView = LayoutInflater.from(getContext()).inflate(R.layout.service_layout, null);
-            windowManager.addView(mainView, params);
-            layout_menu = mainView.findViewById(R.id.layout_menu);
-            layout_controll = mainView.findViewById(R.id.layout_controll);
-            layout_menu.setVisibility(View.VISIBLE);
-            layout_controll.setVisibility(View.GONE);
-            mainView.findViewById(R.id.layout_hide).setOnClickListener(view -> {
-                mainView.findViewById(R.id.layout_menu).setVisibility(View.GONE);
-                mainView.findViewById(R.id.layout_controll).setVisibility(View.VISIBLE);
-            });
-            mainView.findViewById(R.id.layout_close).setOnClickListener(view -> {
-                Stop();
-            });
-            mainView.findViewById(R.id.image_view_controll).setOnTouchListener(onTouchListenerLayout);
-            Switch swicth_aimbot_touch = mainView.findViewById(R.id.swicth_aimbot_touch);
-            swicth_aimbot_touch.setOnCheckedChangeListener((compoundButton, isChecked) -> {
-                if (isChecked){
-                    new Thread(() -> {
-                        if (getInitBase(Devices.getWidth(getInstance()), Devices.getHeight(getInstance())) != 1) {
-                            System.exit(1);
-                        } else {
-                            new Handler(Looper.getMainLooper()).post(() -> CanvasDrawingOverlay());
-                        }
-                    }).start();
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(400);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        File daemonFile = new File(getFilesDir().getPath(), "libPUBGMDaemon.so");
-                        if (daemonFile.exists())
-                            Shell.sh(daemonFile.toString()).exec();
-                    }).start();
-                } else {
-                    closeSocket();
+
+        wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+
+        ll = new LinearLayout(this);
+        ll.setBackgroundColor(Color.RED);
+        LinearLayout.LayoutParams layoutParameteres = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 400);
+        ll.setBackgroundColor(Color.argb(66, 255, 0, 0));
+        ll.setLayoutParams(layoutParameteres);
+
+        final WindowManager.LayoutParams parameters = new WindowManager.LayoutParams(
+                500, 200, WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT);
+        parameters.gravity = Gravity.CENTER | Gravity.CENTER;
+        parameters.x = 0;
+        parameters.y = 0;
+
+        Switch swicth_aimbot_touch = new Switch(this);
+        swicth_aimbot_touch.setText("TouchAimBot");
+        swicth_aimbot_touch.setOnCheckedChangeListener((compoundButton, isChecked) -> {
+            if (isChecked){
+                new Thread(() -> {
+                    if (getInitBase(Devices.getWidth(getInstance()), Devices.getHeight(getInstance())) != 1) {
+                        System.exit(1);
+                    } else {
+                        new Handler(Looper.getMainLooper()).post(() -> CanvasDrawingOverlay());
+                    }
+                }).start();
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(400);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    File daemonFile = new File(getFilesDir().getPath(), "libPUBGMDaemon.so");
+                    if (daemonFile.exists())
+                        Shell.sh(daemonFile.toString()).exec();
+                }).start();
+            } else {
+                closeSocket();
+            }
+        });
+
+        ll.addView(swicth_aimbot_touch);
+        wm.addView(ll, parameters);
+
+        ll.setOnTouchListener(new View.OnTouchListener() {
+            WindowManager.LayoutParams updatedParameters = parameters;
+            double x;
+            double y;
+            double pressedX;
+            double pressedY;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+
+                        x = updatedParameters.x;
+                        y = updatedParameters.y;
+
+                        pressedX = event.getRawX();
+                        pressedY = event.getRawY();
+
+                        break;
+
+                    case MotionEvent.ACTION_MOVE:
+                        updatedParameters.x = (int) (x + (event.getRawX() - pressedX));
+                        updatedParameters.y = (int) (y + (event.getRawY() - pressedY));
+
+                        wm.updateViewLayout(ll, updatedParameters);
+
+                    default:
+                        break;
                 }
-            });
-        }
+
+                return false;
+            }
+        });
+
+
     }
 
     private void CanvasDrawingOverlay() {
@@ -189,4 +241,8 @@ public class MyService extends Service {
             return true;
         }
     }
+    int convertSizeToDp(float f){
+        return  Math.round((float)TypedValue.applyDimension((int)1, (float)f, (DisplayMetrics)this.getResources().getDisplayMetrics()));
+    }
+
 }
