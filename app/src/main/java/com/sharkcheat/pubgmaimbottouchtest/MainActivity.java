@@ -34,5 +34,5 @@ public class MainActivity extends AppCompatActivity {
         if (daemonPath.exists())
             daemonPath.setExecutable(true, true);
     }
-    
+
 }
